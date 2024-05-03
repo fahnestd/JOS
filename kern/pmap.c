@@ -180,7 +180,7 @@ mem_init(void)
 	//    - pages itself -- kernel RW, user NONE
 	// Your code goes here:
 
-	boot_map_region(kern_pgdir, UPAGES, npages * sizeof(struct PageInfo), PADDR(pages), PTE_U | PTE_P);
+	boot_map_region(kern_pgdir, UPAGES, PTSIZE, PADDR(pages), PTE_U);
 
 	//////////////////////////////////////////////////////////////////////
 	// Use the physical memory that 'bootstack' refers to as the kernel
@@ -384,12 +384,14 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 	if (pde & PTE_P) {
 		return &page_table[PTX(va)];
 	} else if (create) {
-		struct PageInfo *pp_page_table = page_alloc(0);
+		struct PageInfo *pp_page_table = page_alloc(ALLOC_ZERO);
 		if (!pp_page_table) {
 			return NULL;
 		}
 		pp_page_table->pp_ref += 1;
+
 		pgdir[PDX(va)] = page2pa(pp_page_table) | PTE_P | PTE_U | PTE_W;
+		page_table = (pte_t *)KADDR(PTE_ADDR(pgdir[PDX(va)]));
 		return &page_table[PTX(va)];
 	}
 	return NULL;
@@ -410,8 +412,16 @@ static void
 boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm)
 {
 	// Fill this function in
-	pte_t *p_pte = pgdir_walk(pgdir, &va, 1);
-	*p_pte = PTE_ADDR(pa) | PTE_P | perm;
+	for (int i = 0; i < size/PGSIZE; i++) {
+		pte_t *p_pte = pgdir_walk(pgdir, (void *) va, 1);
+		if (p_pte == NULL) {
+			panic("error setting pte");
+		}
+		*p_pte = pa | PTE_P | perm;
+		va += PGSIZE;
+		pa += PGSIZE;
+
+	}
 }
 
 //
@@ -449,17 +459,13 @@ page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 		return -E_NO_MEM;	
 	}
 	physaddr_t ppa = page2pa(pp);
-	
-	if (((*p_pte) & PTE_P) != 0) {
-		if (ppa == PTE_ADDR(p_pte)) {
-			page_remove(pgdir, va);
-		} else {
-			pp->pp_ref--;
-		}
-	}
 	pp->pp_ref++;
+	
+	if (*p_pte & PTE_P) {
+		page_remove(pgdir, va);
+	}
 	*p_pte = PTE_ADDR(ppa) | perm | PTE_P;
-	tlb_invalidate(pgdir, va);
+	// tlb_invalidate(pgdir, va);
 	return 0;
 }
 
