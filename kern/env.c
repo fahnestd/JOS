@@ -116,11 +116,10 @@ env_init(void)
 {
 	// Set up envs array
 	// LAB 3: Your code here.
-
-	for (int i = 0; i < NENV; i++) {
+	for (int i = NENV-1; i >= 0; --i) {
 		envs[i].env_id = 0;
 		envs[i].env_link = env_free_list;
-		env_free_list = &envs[i];
+		env_free_list = envs + i;
 	}
 
 	// Per-CPU part of the initialization
@@ -511,8 +510,8 @@ env_run(struct Env *e)
 	// LAB 3: Your code here.
 	// panic("env_run not yet implemented");
 
-	if (curenv->env_status == ENV_RUNNING) {
-		curenv->env_status = ENV_RUNNABLE;
+	if (e->env_status == ENV_RUNNING) {
+		e->env_status = ENV_RUNNABLE;
 	}
 	
 	curenv = e;
@@ -520,5 +519,14 @@ env_run(struct Env *e)
 	curenv->env_runs++;
 	lcr3(PADDR(curenv->env_pgdir));
 	env_pop_tf(&curenv->env_tf);
+
+	// if (e->env_status == ENV_RUNNING)
+	// 	e->env_status = ENV_RUNNABLE;
+	// curenv = e;
+	// e->env_status = ENV_RUNNING;
+	// e->env_runs++;
+	// lcr3(PADDR(e->env_pgdir));
+	// env_pop_tf(&e->env_tf);
+
 }
 
