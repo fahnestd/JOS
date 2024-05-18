@@ -95,7 +95,7 @@ boot_alloc(uint32_t n)
 	// to any kernel code or global variables.
 	if (!nextfree) {
 		extern char end[];
-		nextfree = ROUNDUP((char *) end, PGSIZE);
+		nextfree = ROUNDUP((char *) end + 1, PGSIZE);
 	}
 
 	// Allocate a chunk large enough to hold 'n' bytes, then update
@@ -163,7 +163,9 @@ mem_init(void)
 	// Make 'envs' point to an array of size 'NENV' of 'struct Env'.
 	// LAB 3: Your code here.
 
-	envs = boot_alloc(NENV * sizeof(struct Env));
+	uint32_t env_section_size = NENV * sizeof(struct Env);
+	envs = boot_alloc(env_section_size);
+	memset(envs, '\0', env_section_size);
 
 	//////////////////////////////////////////////////////////////////////
 	// Now that we've allocated the initial kernel data structures, we set
@@ -305,7 +307,6 @@ page_init(void)
 			page_free_list = &pages[i];
 		}
 	}
-
 }
 
 //

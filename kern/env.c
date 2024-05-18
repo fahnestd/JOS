@@ -188,6 +188,7 @@ env_setup_vm(struct Env *e)
 
 	p->pp_ref++;
 	e->env_pgdir = (pde_t *) page2kva(p);
+	memcpy(e->env_pgdir, kern_pgdir, PGSIZE);
 
 	// UVPT maps the env's own page table read-only.
 	// Permissions: kernel R, user R
@@ -277,17 +278,15 @@ region_alloc(struct Env *e, void *va, size_t len)
 	//   You should round va down, and round (va + len) up.
 	//   (Watch out for corner-cases!)
 
-	void *start = ROUNDDOWN(va, PGSIZE);
-	void *end = ROUNDUP(va+len, PGSIZE);
+	void *start = ROUNDDOWN(va, PGSIZE), *end = ROUNDUP(va+len, PGSIZE);
 
-	while (start < end) {
+	for (; start < end; start += PGSIZE) {
 
-		struct PageInfo *page = page_alloc(0);
+		struct PageInfo *page = page_alloc(ALLOC_ZERO);
 		if (!page) {
 			panic("Error allocating region");
 		}
 		page_insert(e->env_pgdir, page, start, PTE_W | PTE_U);
-		start += PGSIZE;
 	}
 
 }
@@ -374,11 +373,10 @@ load_icode(struct Env *e, uint8_t *binary)
 		}
 	}
 
-	lcr3(prev_cr3);
-
 	e->env_tf.tf_eip = elf->e_entry;
 
 	region_alloc(e, (void *) (USTACKTOP - PGSIZE), PGSIZE);
+	lcr3(prev_cr3);
 }
 
 //
