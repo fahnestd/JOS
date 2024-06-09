@@ -281,6 +281,11 @@ mem_init_mp(void)
 	//
 	// LAB 4: Your code here:
 
+	uintptr_t kstacktop_i;
+	for (int i = 0; i < NCPU; i++) {
+		kstacktop_i = KSTACKTOP - i * (KSTKSIZE + KSTKGAP);
+		boot_map_region(kern_pgdir, kstacktop_i - KSTKSIZE, KSTKSIZE, PADDR(percpu_kstacks[i]), PTE_W | PTE_P);
+	}
 }
 
 // --------------------------------------------------------------
@@ -340,6 +345,8 @@ page_init(void)
 	for (int i = start_mem; i < end_mem; i++) {
 		pages[i].pp_ref = 1;
 	}
+
+	pages[MPENTRY_PADDR/PGSIZE].pp_ref += 1;
 
 	// Setup the linked list for free pages
 	for (int i = 0; i < npages; ++i) {
@@ -632,7 +639,18 @@ mmio_map_region(physaddr_t pa, size_t size)
 	// Hint: The staff solution uses boot_map_region.
 	//
 	// Your code here:
-	panic("mmio_map_region not implemented");
+
+	uintptr_t pa_start = ROUNDDOWN(pa, PGSIZE);
+	uintptr_t pa_end = ROUNDUP(pa+size, PGSIZE);
+	size_t size_n = pa_end - pa_start;
+
+	if (base + size_n > MMIOLIM) {
+		panic("MMIO limit exceeded");
+	}
+	boot_map_region(kern_pgdir, base, size_n, pa, PTE_W | PTE_PCD | PTE_PWT);
+	uintptr_t old_base = base;
+	base += size_n;
+	return (void *) old_base;
 }
 
 static uintptr_t user_mem_check_addr;
