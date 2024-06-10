@@ -26,15 +26,34 @@ pgfault(struct UTrapframe *utf)
 
 	// LAB 4: Your code here.
 
-	// Allocate a new page, map it at a temporary location (PFTEMP),
-	// copy the data from the old page to the new page, then move the new
-	// page to the old page's address.
-	// Hint:
-	//   You should make three system calls.
+	if ((err & FEC_WR) && (uvpd[PDX(addr)] & PTE_P) && (uvpt[PGNUM(addr)] & PTE_P) && (uvpt[PGNUM(addr)] & PTE_COW)) {
+		
 
-	// LAB 4: Your code here.
+		// Allocate a new page, map it at a temporary location (PFTEMP),
+		// copy the data from the old page to the new page, then move the new
+		// page to the old page's address.
+		// Hint:
+		//   You should make three system calls.
 
-	panic("pgfault not implemented");
+		// LAB 4: Your code here.
+
+		if (sys_page_alloc(0, PFTEMP, PTE_W | PTE_U | PTE_P) < 0) {
+			panic("error allocating page");
+		}
+
+		void *pg_start = ROUNDDOWN(addr, PGSIZE);
+		memcpy(PFTEMP, pg_start, PGSIZE);
+
+		if (sys_page_map(0, PFTEMP, 0, pg_start, PTE_W | PTE_U | PTE_P) < 0) {
+			panic("error mapping page");
+		}
+
+		if (sys_page_unmap(0, PFTEMP) < 0) {
+			panic("error unmapping temp page");
+		}
+		return;
+	}
+	panic("pgfault Not a write or copy-on-write page");
 }
 
 //
@@ -54,7 +73,25 @@ duppage(envid_t envid, unsigned pn)
 	int r;
 
 	// LAB 4: Your code here.
-	panic("duppage not implemented");
+	void *page = (void*)(pn * PGSIZE);
+	if (uvpt[pn] & PTE_W || uvpt[pn] & PTE_COW) {
+		int pg;
+		pg = sys_page_map(0, page, envid, page, PTE_P | PTE_U | PTE_COW);
+		if (pg < 0) {
+			return pg;
+		}
+
+		pg = sys_page_map(0, page, 0, page, PTE_P | PTE_U | PTE_COW);
+		if (pg < 0) {
+			return pg;
+		}
+	} else {
+		int pg = sys_page_map(0, page, envid, page, PTE_U | PTE_P);
+		if (pg < 0) {
+			return pg;
+		}
+	}
+
 	return 0;
 }
 
@@ -78,7 +115,37 @@ envid_t
 fork(void)
 {
 	// LAB 4: Your code here.
-	panic("fork not implemented");
+	set_pgfault_handler(pgfault);
+	envid_t env_id = sys_exofork();
+
+	if (env_id == 0) {
+		thisenv = &envs[ENVX(sys_getenvid())];
+		return 0;
+	}
+
+	if (env_id < 0) {
+		return env_id;
+	}
+	uintptr_t addr;
+	for (addr = 0; addr < USTACKTOP; addr += PGSIZE) {
+		if ((uvpd[PDX(addr)] & PTE_P) && (uvpt[PGNUM(addr)] & PTE_P) && (uvpt[PGNUM(addr)] & PTE_U)) {
+			duppage(env_id, PGNUM(addr));
+		}
+	}
+
+	if (sys_page_alloc(env_id, (void *)(UXSTACKTOP - PGSIZE), PTE_P | PTE_U | PTE_W) < 0) {
+		panic("error on page alloc");
+	}
+
+	extern void _pgfault_upcall();
+	if (sys_env_set_pgfault_upcall(env_id, _pgfault_upcall) < 0) {
+		panic("error on pagefault upcall set");
+	}
+	
+	if (sys_env_set_status(env_id, ENV_RUNNABLE) < 0) {
+		panic("error on env set status");
+	}
+	return env_id;
 }
 
 // Challenge!
