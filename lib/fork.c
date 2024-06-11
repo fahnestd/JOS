@@ -115,7 +115,7 @@ envid_t
 fork(void)
 {
 	// LAB 4: Your code here.
-	set_pgfault_handler(pgfault);
+	set_pgfault_handler(&pgfault);
 	envid_t env_id = sys_exofork();
 
 	if (env_id == 0) {

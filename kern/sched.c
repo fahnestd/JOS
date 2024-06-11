@@ -36,7 +36,7 @@ sched_yield(void)
 	}
 	for (int i = 0; i < NENV; i++) {
 		if (envs[(cur + i) % NENV].env_status == ENV_RUNNABLE) {
-			env_run(envs + ((cur + i) % NENV));
+			env_run(&envs[(cur + i) % NENV]);
 		}
 	}
 	if (curenv && curenv->env_status == ENV_RUNNING) {
@@ -88,7 +88,7 @@ sched_halt(void)
 		"pushl $0\n"
         // LAB 4:
 		// Uncomment the following line after completing exercise 13
-		//"sti\n"
+		"sti\n"
 		"1:\n"
 		"hlt\n"
 		"jmp 1b\n"
