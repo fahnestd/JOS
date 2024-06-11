@@ -386,7 +386,7 @@ sys_ipc_recv(void *dstva)
 	curenv->env_ipc_recving = 1; 
 	curenv->env_status = ENV_NOT_RUNNABLE;
 
-	sched_yield();
+	sys_yield();
 
 	return 0;
 }

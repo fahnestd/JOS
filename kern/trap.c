@@ -271,6 +271,7 @@ trap_dispatch(struct Trapframe *tf)
 		case T_BRKPT:
 			return monitor(tf);
 		case T_SYSCALL:
+		{
 			int32_t ret = syscall(
 				tf->tf_regs.reg_eax,
 				tf->tf_regs.reg_edx,
@@ -281,6 +282,7 @@ trap_dispatch(struct Trapframe *tf)
 			);
 			tf->tf_regs.reg_eax = ret;
 			return;
+		}
 	}
 
 	// Handle spurious interrupts
@@ -297,9 +299,11 @@ trap_dispatch(struct Trapframe *tf)
 	// LAB 4: Your code here.
 	switch (tf->tf_trapno) {
 		case (IRQ_OFFSET + IRQ_TIMER):
+		{
 			lapic_eoi();
 			sched_yield();
 			return;
+		}
 	}
 
 	// Unexpected trap: The user process or the kernel has a bug.
