@@ -322,7 +322,7 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 	struct Env *e;
 	int er;
 	er = envid2env(envid, &e, 0);
-	if (er) {
+	if (er < 0) {
 		return er;
 	} 
 
@@ -358,6 +358,7 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 	e->env_tf.tf_regs.reg_eax = 0;
 
 	return 0;
+
 }
 
 // Block until a value is ready.  Record that you want to receive
@@ -375,14 +376,13 @@ static int
 sys_ipc_recv(void *dstva)
 {
 	// LAB 4: Your code here.
-	if ((uint32_t)dstva % PGSIZE) {
-		return -E_INVAL;
-	}
-
 	if ((uint32_t) dstva < UTOP) {
-		curenv->env_ipc_dstva = dstva;
+		if ((void *) dstva != ROUNDDOWN(dstva,PGSIZE)) {
+			return -E_INVAL;
+		}
 	}
 
+	curenv->env_ipc_dstva = dstva;
 	curenv->env_ipc_recving = 1; 
 	curenv->env_status = ENV_NOT_RUNNABLE;
 

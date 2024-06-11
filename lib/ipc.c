@@ -23,14 +23,14 @@ int32_t
 ipc_recv(envid_t *from_env_store, void *pg, int *perm_store)
 {
 	// LAB 4: Your code here.
-	if (!pg) {
-		pg = (void *) -1;
-	}
 	if (from_env_store) {
 		*from_env_store = 0;
 	}
 	if (perm_store) {
 		*perm_store = 0;
+	}
+	if (!pg) {
+		pg = (void *) -1;
 	}
 	
 	int val = sys_ipc_recv(pg);
